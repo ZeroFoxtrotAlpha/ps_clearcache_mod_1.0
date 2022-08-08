@@ -221,9 +221,18 @@ Function Clear-AcrobatCacheFiles
     }
 }
 
-#-dnsflush-#
+#-network clear-#
+
+ipconfig /release
 
 ipconfig /flushdns
+
+ipconfig /renew
+
+netsh int ip reset
+
+netsh winsock
+
 
 #------------------------------------------------------------------#
 #- MAIN                                                            #
@@ -240,3 +249,6 @@ Get-StorageSize
 
 $EndTime = (Get-Date)
 Write-Verbose "Elapsed Time: $( ($StartTime - $EndTime).totalseconds ) seconds"
+
+$wshell = New-Object -ComObject Wscript.Shell
+$Output = $wshell.Popup("Please restart the system for changes to take affect!")
