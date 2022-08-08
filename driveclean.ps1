@@ -2,7 +2,23 @@
 #-credit to inode64 for primary script writing-#
 
 #-modified by zerofoxtrotalpha-#
+param([switch]$Elevated)
 
+function Test-Admin {
+    $currentUser = New-Object Security.Principal.WindowsPrincipal $([Security.Principal.WindowsIdentity]::GetCurrent())
+    $currentUser.IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)
+}
+
+if ((Test-Admin) -eq $false)  {
+    if ($elevated) {
+        # tried to elevate, did not work, aborting
+    } else {
+        Start-Process powershell.exe -Verb RunAs -ArgumentList ('-noprofile -noexit -file "{0}" -elevated' -f ($myinvocation.MyCommand.Definition))
+    }
+    exit
+}
+
+'running with full privileges'
 #------------------------------------------------------------------#
 #- Clear-GlobalWindowsCache                                        #
 #------------------------------------------------------------------#
@@ -33,10 +49,6 @@ Function Clear-UserCacheFiles
         Clear-AcrobatCacheFiles $localUser
         Clear-ChromeCacheFiles $localUser
         Clear-EdgeCacheFiles $localUser
-        Clear-FirefoxCacheFiles $localUser
-        Clear-MicrosoftOfficeCacheFiles $localUser
-        Clear-TeamsCacheFiles $localUser
-        Clear-ThunderbirdCacheFiles $localUser
         Clear-WindowsUserCacheFiles $localUser
     }
 }
@@ -63,96 +75,6 @@ Function Clear-WindowsUserCacheFiles
     Remove-Dir "C:\Users\$user\AppData\Local\Temp"
 }
 
-#------------------------------------------------------------------#
-#- Clear-WUS-Cache Group                                           #
-#------------------------------------------------------------------#
-
-Function CheckWUS
-{
-    $s = Get-Service wuauserv
-    if ($s.Status -eq "Running")
-    {
-        return 0
-    }
-    else
-    {
-        return 1
-    }
-}
-Function StopWUS
-{
-    Stop-Service wuauserv -Force
-}
-
-Function StartWUS
-{
-    Start-Service wuauserv
-}
-
-Function WUSRunning
-{
-    Write-Host "Windows Update Service is Running..." -ForegroundColor Red
-    Write-Host " Stopping Windows Update Service..." -ForegroundColor Blue
-
-    # Stopping Windows Update Service and check again if it is stopped
-    StopWUS
-    if (CheckWUS)
-    {
-        WUSStopped
-    }
-    else
-    {
-        Write-Host "Can't stop Windows Update Service..." -ForegroundColor Red
-        exit 1
-    }
-    Write-Host "Starting Windows Update Service..." -ForegroundColor Blue
-
-    # Starting the Windows Update Service again
-    StartWUS
-}
-
-Function FreeDiskSpace
-{
-    param(
-        [string]$DiskLetter = 'C'
-    )
-
-    return ([math]::Round((Get-Volume -DriveLetter $DiskLetter | Select-Object @{ Name = "MB"; Expression = { $_.SizeRemaining/1MB } }).MB, 2))
-}
-
-Function WUSStopped
-{
-    Write-Host "Windows Update Service is Stopped..." -ForegroundColor Green
-
-    # Getting free disk space before the cleaning actions
-    Write-Host " Free Disk Space before: " -ForegroundColor Blue -NoNewline
-    $Before = FreeDiskSpace
-    Write-Host "$Before MB"
-
-    Write-Host " Cleaning Files..." -ForegroundColor Blue -NoNewline
-    Get-ChildItem -LiteralPath $env:windir\SoftwareDistribution\Download\ -Recurse | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
-    Write-Host "Done..." -ForegroundColor Green
-
-    # Getting free disk space after the cleaning actions
-    Write-Host " Free Disk Space after: " -ForegroundColor Blue -NoNewline
-    $After = FreeDiskSpace
-    Write-Host "$After MB"
-
-    # Calculating the free disk space difference
-    Write-Host " Cleaned: " -ForegroundColor Blue -NoNewline
-    $Cleaned = $After - $Before
-    Write-Host "$Cleaned MB"
-}
-
-# Program
-if (CheckWUS)
-{
-    WUSStopped
-}
-else
-{
-    WUSRunning
-}
 
 
 #Region HelperFunctions
@@ -275,61 +197,8 @@ Function Clear-EdgeCacheFiles
 
 #Endregion ChromiumBrowsers
 
-#Region FirefoxBrowsers
-
-#------------------------------------------------------------------#
-#- Clear-FirefoxCacheFiles                                         #
-#------------------------------------------------------------------#
-Function Clear-FirefoxCacheFiles
-{
-    param([string]$user = $env:USERNAME)
-    Clear-MozillaTemplate "C:\users\$user\AppData\Local\Mozilla\Firefox\Profiles" "Browser Mozilla Firefox"
-}
-
-#------------------------------------------------------------------#
-#- Clear-WaterfoxCacheFiles                                        #
-#------------------------------------------------------------------#
-Function Clear-WaterfoxCacheFiles
-{
-    param([string]$user = $env:USERNAME)
-    Clear-MozillaTemplate "C:\users\$user\AppData\Local\Waterfox\Profiles" "Browser Waterfox"
-}
-
-#Endregion FirefoxBrowsers
-
 #Endregion Browsers
 
-#Region CommunicationPlatforms
-
-#------------------------------------------------------------------#
-#- Clear-TeamsCacheFiles                                           #
-#------------------------------------------------------------------#
-Function Clear-TeamsCacheFiles
-{
-    param([string]$user = $env:USERNAME)
-    if ((Test-Path "C:\users\$user\AppData\Roaming\Microsoft\Teams"))
-    {
-        $possibleCachePaths = @("application cache\cache", "blob_storage", "cache", "Code Cache", "databases", "gpucache", "Indexeddb", "Local Storage", "logs", "tmp")
-        $teamsAppDataPath = (Get-ChildItem "C:\users\$user\AppData\Roaming\Microsoft\Teams" | Where-Object { $_.Name -match "Default" }[0]).FullName
-        ForEach ($cachePath in $possibleCachePaths)
-        {
-            Remove-Dir "$teamsAppDataPath\$cachePath"
-        }
-    }
-}
-
-#Endregion CommunicationPlatforms
-
-#Region MiscApplications
-
-#------------------------------------------------------------------#
-#- Clear-ThunderbirdCacheFiles                                     #
-#------------------------------------------------------------------#
-Function Clear-ThunderbirdCacheFiles
-{
-    param([string]$user = $env:USERNAME)
-    Clear-MozillaTemplate "C:\users\$user\AppData\Local\Thunderbird\Profiles" "Mozilla Thunderbird"
-}
 
 
 #------------------------------------------------------------------#
@@ -352,29 +221,9 @@ Function Clear-AcrobatCacheFiles
     }
 }
 
-#------------------------------------------------------------------#
-#- Clear-MicrosoftOfficeCacheFiles                                 #
-#------------------------------------------------------------------#
-Function Clear-MicrosoftOfficeCacheFiles
-{
-    param([string]$user = $env:USERNAME)
-    if ((Test-Path "C:\users\$user\AppData\Local\Microsoft\Outlook"))
-    {
-        Get-ChildItem "C:\users\$user\AppData\Local\Microsoft\Outlook\*.pst" -Recurse -Force -ErrorAction SilentlyContinue |
-                remove-item -force -recurse -ErrorAction SilentlyContinue -Verbose
-        Get-ChildItem "C:\users\$user\AppData\Local\Microsoft\Outlook\*.ost" -Recurse -Force -ErrorAction SilentlyContinue |
-                remove-item -force -recurse -ErrorAction SilentlyContinue -Verbose
-        Get-ChildItem "C:\users\$user\AppData\Local\Microsoft\Windows\Temporary Internet Files\Content.Outlook\*" -Recurse -Force -ErrorAction SilentlyContinue |
-                remove-item -force -recurse -ErrorAction SilentlyContinue -Verbose
-        Get-ChildItem "C:\users\$user\AppData\Local\Microsoft\Windows\Temporary Internet Files\Content.MSO\*" -Recurse -Force -ErrorAction SilentlyContinue |
-                remove-item -force -recurse -ErrorAction SilentlyContinue -Verbose
-        Get-ChildItem "C:\users\$user\AppData\Local\Microsoft\Windows\Temporary Internet Files\Content.Word\*" -Recurse -Force -ErrorAction SilentlyContinue |
-                remove-item -force -recurse -ErrorAction SilentlyContinue -Verbose
-    }
-}
+#-dnsflush-#
 
-
-#Endregion MiscApplications
+ipconfig /flushdns
 
 #------------------------------------------------------------------#
 #- MAIN                                                            #
