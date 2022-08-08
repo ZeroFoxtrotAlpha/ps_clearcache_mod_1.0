@@ -6,6 +6,7 @@
 2.0 (program support)
 *adobe
 *chrome
+*edge
 
 1.0 (the rocks and dirt)
 *windows cache
