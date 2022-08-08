@@ -31,19 +31,10 @@ Function Clear-UserCacheFiles
     ForEach ($localUser in (Get-ChildItem "C:\users").Name)
     {
         Clear-AcrobatCacheFiles $localUser
-        Clear-AVGCacheFiles $localUser
-        Clear-BattleNetCacheFiles $localUser
         Clear-ChromeCacheFiles $localUser
-        Clear-DiscordCacheFiles $localUser
         Clear-EdgeCacheFiles $localUser
-        Clear-EpicGamesCacheFiles $localUser
         Clear-FirefoxCacheFiles $localUser
-        Clear-GoogleEarth $localUser
-        Clear-iTunesCacheFiles $localUser
-        Clear-LibreOfficeCacheFiles $localUser
-        Clear-LolScreenSaverCacheFiles $localUser
         Clear-MicrosoftOfficeCacheFiles $localUser
-        Clear-SteamCacheFiles $localUser
         Clear-TeamsCacheFiles $localUser
         Clear-ThunderbirdCacheFiles $localUser
         Clear-WindowsUserCacheFiles $localUser
